@@ -25,7 +25,7 @@ public class SessionManager
         return session;         
     }
 
-    public Session? TryAddSession(Guid sessionId, string sessionKey)
+    public Session? TryAddSession(Guid sessionId, byte[] sessionKey)
     {
         var session = new Session() { SessionId = sessionId, Expires = DateTime.UtcNow.AddDays(1), SessionKey = sessionKey };
         bool isSuccess = _sessions.TryAdd(sessionId, session);

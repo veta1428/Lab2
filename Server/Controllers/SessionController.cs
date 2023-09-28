@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Server.Accessors;
 using Server.Managers;
+using Server.Services;
 using System.Security;
 using System.Security.Cryptography;
 using System.Text;
@@ -23,10 +24,10 @@ public class SessionController : ControllerBase
     [HttpPost]
     public string StartSession([FromBody] byte[] rsaPublicKey)
     {
-        string sessionKey = "Super puper secret string!";
+        byte[] sessionKey = SessionKeyGenerator.GenerateSessionKey();
         RSA rsa = RSA.Create();
         rsa.ImportRSAPublicKey(rsaPublicKey, out _);
-        byte[] sessionKeyEncrypted = rsa.Encrypt(Encoding.Unicode.GetBytes(sessionKey), RSAEncryptionPadding.Pkcs1);
+        byte[] sessionKeyEncrypted = rsa.Encrypt(sessionKey, RSAEncryptionPadding.Pkcs1);
         Guid sessionId = Guid.NewGuid();
         HttpContext.Response.Cookies.Append("SessionId", sessionId.ToString());
 

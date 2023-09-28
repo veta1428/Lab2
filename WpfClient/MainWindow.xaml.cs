@@ -1,21 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Security.Cryptography;
-using System.Security.Policy;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using WpfClient.Clients;
 
 namespace WpfClient;
@@ -37,5 +21,27 @@ public partial class MainWindow : Window
     {
         await _secureClient.InitializeAsync();
         base.OnInitialized(e);
+    }
+
+    private async void OnSearchClick(object sender, RoutedEventArgs e)
+    {
+        var result = await _secureClient.GetFileAsync(this.fileName.Text);
+
+        if (!result.IsSuccessful)
+            this.textBlock.Text = "Failure: " + result.Error.ToString();
+        else
+            this.textBlock.Text = result.Result;
+
+    }
+
+    private async void OnReconnectClick(object sender, RoutedEventArgs e)
+    {
+        var result = await _secureClient.InitializeAsync();
+
+        if (result.IsSuccessful)
+        {
+            MessageBox.Show("Critical fail, shutting down", "Error");
+            Application.Current.Shutdown();
+        }
     }
 }

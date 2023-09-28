@@ -8,5 +8,5 @@ public class Session
 
     public DateTime Expires { get; init; }
 
-    public string SessionKey { get; set; } = null!;
+    public byte[] SessionKey { get; set; } = null!;
 }

@@ -1,5 +1,6 @@
 using Server.Accessors;
 using Server.Managers;
+using Server.Middlewares;
 
 namespace Server;
 
@@ -22,7 +23,7 @@ public class Program
         app.UseHttpsRedirection();
 
         app.UseAuthorization();
-
+        app.UseMiddleware<SessionMiddleware>();
 
         app.MapControllers();
 

@@ -9,10 +9,12 @@ public class SerpentStandardMode : SerpentAlgorithm
 
     public override object MakeKey(byte[] key)
     {
-        var w = new int[4 * (Rounds + 1)];
+        var w = new int[4 * (Rounds + 1)]; // Initialize an array to hold the key schedule
         var offset = 0;
-        var limit = key.Length / 4;
+        var limit = key.Length / 4; // Determine the number of 32-bit words in the key
         int i, j;
+
+        // Convert the key bytes into 32-bit words
         for (i = 0; i < limit; i++)
             w[i] = (key[offset++] & 0xFF) |
                    ((key[offset++] & 0xFF) << 8) |
@@ -20,25 +22,28 @@ public class SerpentStandardMode : SerpentAlgorithm
                    ((key[offset++] & 0xFF) << 24);
 
         if (i < 8)
-            w[i] = 1;
+            w[i] = 1; // If the key is less than 256 bits, set the remaining words to 1
 
         int t;
         for (i = 8, j = 0; i < 16; i++)
         {
-            t = (int) (w[j] ^ w[i - 5] ^ w[i - 3] ^ w[i - 1] ^ PHI ^ j++);
-            w[i] = (t << 11) | (int) ((uint) t >> 21);
+            t = (int)(w[j] ^ w[i - 5] ^ w[i - 3] ^ w[i - 1] ^ PHI ^ j++);
+            w[i] = (t << 11) | (int)((uint)t >> 21); // Key expansion using a nonlinear function and bit shifting
         }
+
+        // Expand the key using a linear function
         for (i = 0, j = 8; i < 8;)
             w[i++] = w[j++];
+
         limit = 4 * (Rounds + 1);
 
         for (; i < limit; i++)
         {
-            t = (int) (w[i - 8] ^ w[i - 5] ^ w[i - 3] ^ w[i - 1] ^ PHI ^ i);
-            w[i] = (t << 11) | (int) ((uint) t >> 21);
+            t = (int)(w[i - 8] ^ w[i - 5] ^ w[i - 3] ^ w[i - 1] ^ PHI ^ i);
+            w[i] = (t << 11) | (int)((uint)t >> 21); // Key expansion using a nonlinear function and bit shifting
         }
 
-        var k = new int[limit];
+        var k = new int[limit]; // Create a new array to store the expanded key
         for (i = 0; i < Rounds + 1; i++)
         {
             var box = (Rounds + 3 - i) % Rounds;
@@ -49,12 +54,12 @@ public class SerpentStandardMode : SerpentAlgorithm
 
             for (j = 0; j < 32; j++)
             {
-                var inV = 
+                var inV =
                     GetBit(a, j) |
                     (GetBit(b, j) << 1) |
                     (GetBit(c, j) << 2) |
                     (GetBit(d, j) << 3);
-                var outV = S(box, inV);
+                var outV = S(box, inV); // Apply the S-box substitution
                 k[4 * i] |= GetBit(outV, 0) << j;
                 k[4 * i + 1] |= GetBit(outV, 1) << j;
                 k[4 * i + 2] |= GetBit(outV, 2) << j;
@@ -62,10 +67,11 @@ public class SerpentStandardMode : SerpentAlgorithm
             }
         }
 
-        var K = new int[Rounds + 1][];
+        var K = new int[Rounds + 1][]; // Create a new array to hold the round keys
         for (var kn = 0; kn < K.Length; kn++)
             K[kn] = new int[4];
 
+        // Split the expanded key into round keys
         for (i = 0, offset = 0; i < Rounds + 1; i++)
         {
             K[i][0] = k[offset++];
@@ -74,10 +80,11 @@ public class SerpentStandardMode : SerpentAlgorithm
             K[i][3] = k[offset++];
         }
 
+        // Apply an initial permutation to each round key
         for (i = 0; i < Rounds + 1; i++)
             K[i] = IP(K[i]);
 
-        return K;
+        return K; // Return the generated round keys
     }
 
     public override byte[] BlockEncrypt(byte[] inV, int inOffset, object sessionKey)
@@ -166,16 +173,34 @@ public class SerpentStandardMode : SerpentAlgorithm
         return result;
     }
 
+    /// <summary>
+    /// Extracts the i-th bit from the integer x.
+    /// </summary>
+    /// <param name="x">Integer to extract from</param>
+    /// <param name="i">Index</param>
+    /// <returns></returns>
     private int GetBit(int x, int i)
     {
         return (int) ((uint) x >> i) & 0x01;
     }
 
+    /// <summary>
+    /// Extracts the i-th bit from the array x.
+    /// </summary>
+    /// <param name="x">Array of integers to extract from</param>
+    /// <param name="i">Index</param>
+    /// <returns></returns>
     private int GetBit(int[] x, int i)
     {
         return (int) ((uint) x[i / 32] >> (i % 32)) & 0x01;
     }
 
+    /// <summary>
+    /// Sets or clears the i-th bit in the array x based on the value v (1 for set, 0 for clear).
+    /// </summary>
+    /// <param name="x"></param>
+    /// <param name="i"></param>
+    /// <param name="v"></param>
     private void SetBit(int[] x, int i, int v)
     {
         if ((v & 0x01) == 1)
@@ -213,7 +238,7 @@ public class SerpentStandardMode : SerpentAlgorithm
     {
         var result = new int[4];
         for (var i = 0; i < 128; i++)
-            SetBit(result, i, GetBit(x, T[i] & 0x7F));
+            SetBit(result, i, GetBit(x, T[i]));
         return result;
     }
 
@@ -222,6 +247,12 @@ public class SerpentStandardMode : SerpentAlgorithm
         return new[] { x[0] ^ y[0], x[1] ^ y[1], x[2] ^ y[2], x[3] ^ y[3] };
     }
 
+    /// <summary>
+    /// Performs an S-box substitution on x using the S-box table. The box parameter determines which S-box to use, and x is the input to the S-box.
+    /// </summary>
+    /// <param name="box">Number of box to use</param>
+    /// <param name="x">Input to s-box</param>
+    /// <returns></returns>
     private int S(int box, int x)
     {
         return Sbox[box % 32][x] & 0x0F;
