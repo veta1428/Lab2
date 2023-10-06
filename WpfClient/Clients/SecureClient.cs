@@ -66,7 +66,7 @@ public class SecureClient
         byte[] fileEncrypted = Convert.FromBase64String(await response.Content.ReadAsStringAsync());
         await System.IO.File.WriteAllBytesAsync(filepath, fileEncrypted);
         SerpentCipher serpentCipher = new SerpentCipher();
-        serpentCipher.Decrypt(filepath, SessionKey, 32, Mode.Standard, EncryptionMode.ECB);
+        serpentCipher.Decrypt(filepath, SessionKey, 32, EncryptionMode.ECB);
 
         return RequestResult<string>.Success(System.IO.File.ReadAllText(filepath));
     }
