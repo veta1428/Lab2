@@ -5,7 +5,7 @@ namespace Serpent;
 
 public class SerpentCipher
 {
-    private const int BlockSize = 16; // bytes in a data-block
+    private const int BlockSize = 16;
     private const int DefaultKeySize = 32;
     private static readonly RandomNumberGenerator rng = RandomNumberGenerator.Create();
 
@@ -45,7 +45,7 @@ public class SerpentCipher
         rng.GetBytes(leadingBytes);
         leadingBytes[0] = (byte)leadingBytes.Length;
 
-        fm.UnshiftBytesToFile(FilePath, tempFilePath, leadingBytes, out var errorCode); // po czym dodaję go do pliku tymczasowego
+        fm.UnshiftBytesToFile(FilePath, tempFilePath, leadingBytes, out var errorCode);
 
         if (errorCode == ErrorCode.ExpandFileFailed)
         {
@@ -54,7 +54,7 @@ public class SerpentCipher
 
         do
         {
-            if (position == 0) // dodaj do pliku informację o rozszerzeniu, ilości rund i sumę kontrolną
+            if (position == 0)
             {
                 var infoBytes = new List<byte>();
 
@@ -63,7 +63,7 @@ public class SerpentCipher
                 var extension = Path.GetExtension(FilePath);
                 extension = extension.Replace(".", "");
                 infoBytes.AddRange(enc.GetBytes(extension));
-                infoBytes.Add(3); // EOT byte
+                infoBytes.Add(3);
                 infoBytes.AddRange(enc.GetBytes(Rounds.ToString()));
                 infoBytes.Add(3);
 
@@ -85,7 +85,7 @@ public class SerpentCipher
 
                 fm.DeleteTempFile(tempFilePath, out errorCode);
 
-                if (errorCode == ErrorCode.DeletingTempFileFailed) // w razie błędu szyfrowanie nie powiodło się
+                if (errorCode == ErrorCode.DeletingTempFileFailed)
                 {
                     return EncryptionResult.Fail("Temporary file couldn't be deleted."); ;
                 }
@@ -102,8 +102,6 @@ public class SerpentCipher
 
             var OutputFileFragment = new List<byte>();
 
-            // SZYFROWANIE BLOKU
-
             for (var i = 0; i < InputFileFragment.Count; i += BlockSize)
             {
                 if (EncrMode == EncryptionMode.ECB)
@@ -112,11 +110,11 @@ public class SerpentCipher
                 }
                 else if (EncrMode == EncryptionMode.CBC)
                 {
-                    if (position == 0 && i == 0) // inicjalizuję iv tylko raz
+                    if (position == 0 && i == 0)
                         previousBlock = iv;
 
                     var plainText = InputFileFragment.GetRange(i, BlockSize).ToArray();
-                    var currBlock = plainText.XOR(previousBlock); // do plaintextu xorujemy poprzedni zaszyfrowany blok
+                    var currBlock = plainText.XOR(previousBlock);
                     var cipherText = sa.BlockEncrypt(currBlock, 0, expandedKey);
                     OutputFileFragment.AddRange(cipherText);
                     previousBlock = cipherText;
@@ -127,20 +125,20 @@ public class SerpentCipher
                 }
             }
 
-            fm.SaveFileFragment(destFilePath, position, OutputFileFragment.ToArray(), out errorCode); // zapisuję kolejną część pliku do pliku docelowego
+            fm.SaveFileFragment(destFilePath, position, OutputFileFragment.ToArray(), out errorCode);
 
-            if (errorCode == ErrorCode.SaveFileFailed) // w razie błędu szyfrowanie nie powiodło się
+            if (errorCode == ErrorCode.SaveFileFailed)
             {
                 return EncryptionResult.Fail("File couldn't be saved. ");
             }
 
-            position += fragmentSize; // ustaw pozycję kolejnego fragmentu
+            position += fragmentSize;
         }
-        while (position <= fi.Length); // pętlę powtarzam dopóki nie skończy się plik
+        while (position <= fi.Length);
 
-        fm.DeleteTempFile(tempFilePath, out errorCode); // usuń plik tymczasowy
+        fm.DeleteTempFile(tempFilePath, out errorCode);
 
-        if (errorCode == ErrorCode.DeletingTempFileFailed) // w razie błędu szyfrowanie nie powiodło się
+        if (errorCode == ErrorCode.DeletingTempFileFailed)
         {
             return EncryptionResult.Fail("Temporary file couldn't be deleted.");
         }
@@ -149,16 +147,16 @@ public class SerpentCipher
         iv.CopyTo(ivAndSalt, 0);
         saltBytes.CopyTo(ivAndSalt, iv.Length);
 
-        fm.UnshiftBytesToFile(destFilePath, tempFilePath, ivAndSalt, out errorCode); // suma kontrolna
+        fm.UnshiftBytesToFile(destFilePath, tempFilePath, ivAndSalt, out errorCode);
 
         if (errorCode == ErrorCode.ExpandFileFailed)
         {
             return EncryptionResult.Fail("File couldn't be modified.");
         }
 
-        fm.DeleteTempFile(destFilePath, out errorCode); // usuń plik tymczasowy
+        fm.DeleteTempFile(destFilePath, out errorCode);
 
-        if (errorCode == ErrorCode.DeletingTempFileFailed) // w razie błędu szyfrowanie nie powiodło się
+        if (errorCode == ErrorCode.DeletingTempFileFailed)
             return EncryptionResult.Fail("Temporary file couldn't be deleted.");
 
         File.Move(tempFilePath, destFilePath);
@@ -174,7 +172,7 @@ public class SerpentCipher
         var position = 0;
         var destFilePath = string.Empty;
         var fi = new FileInfo(FilePath);
-        const int fragmentSize = 1024 * 1024; // 1 MB (musi dać się wyciągnąć pierwiastek czwartego stopnia)
+        const int fragmentSize = 1024 * 1024;
         Encoding enc = new UTF8Encoding();
         sa.Rounds = Rounds;
         sa.BlockSize = BlockSize;
@@ -205,7 +203,7 @@ public class SerpentCipher
 
         var expandedKey = sa.MakeKey(Key);
 
-        fm.ShiftBytesFromFile(FilePath, tempFilePath, BlockSize * 2, out errorCode); // usuń z pliku dwa bloki - sumę kontrolną i initalization vector
+        fm.ShiftBytesFromFile(FilePath, tempFilePath, BlockSize * 2, out errorCode);
 
         if (errorCode == ErrorCode.ShiftFileFailed)
         {
@@ -222,8 +220,6 @@ public class SerpentCipher
             }
 
             var OutputFileFragment = new List<byte>();
-
-            // DESZYFROWANIE BLOKU
 
             for (var i = 0; i < InputFileFragment.Count; i += BlockSize)
             {
@@ -250,20 +246,20 @@ public class SerpentCipher
 
             // ===================
 
-            if (position == 0) // jeśli odszyfrowałem pierwszy fragment pliku, przed zapisaniem usuwam z tablicy bajty dodane przy szyfrowaniu
+            if (position == 0)
             {
-                int shiftedbytes = OutputFileFragment[BlockSize * 2]; // zawartość 32 bajtu, 0 - 15 deszyfrowana suma kontrolna, 16-31 rozszerzenie i ilość rund
+                int shiftedbytes = OutputFileFragment[BlockSize * 2];
                 var decryptedControlSum = new byte[BlockSize];
                 var extBytes = new byte[1];
                 var roundBytes = new byte[1];
                 var i = 0;
 
-                for (; i < BlockSize; i++) // zczytaj sumę kontrolną
+                for (; i < BlockSize; i++)
                     decryptedControlSum[i] = OutputFileFragment[i];
 
                 var listExtbytes = new List<byte>();
 
-                for (; i < BlockSize * 2; i++) // zczytaj rozszerzenie
+                for (; i < BlockSize * 2; i++)
                 {
                     if (OutputFileFragment[i] != 3)
                         listExtbytes.Add(OutputFileFragment[i]);
@@ -277,7 +273,7 @@ public class SerpentCipher
                 i++;
                 var listRoundsBytes = new List<byte>();
 
-                for (; i < BlockSize * 2; i++)  // zczytaj zaszyfrowaną ilość rund
+                for (; i < BlockSize * 2; i++)
                 {
                     if (OutputFileFragment[i] != 3)
                         listRoundsBytes.Add(OutputFileFragment[i]);
@@ -307,18 +303,18 @@ public class SerpentCipher
                     OutputFileFragment.RemoveAt(0);
             }
 
-            fm.SaveFileFragment(destFilePath, position, OutputFileFragment.ToArray(), out errorCode); // zapisuję kolejną część pliku do pliku docelowego
+            fm.SaveFileFragment(destFilePath, position, OutputFileFragment.ToArray(), out errorCode);
 
-            if (errorCode == ErrorCode.SaveFileFailed) // w razie błędu szyfrowanie nie powiodło się
+            if (errorCode == ErrorCode.SaveFileFailed)
             {
                 return EncryptionResult.Fail("FIle couldn't be saved. ");
             }
 
-            position += fragmentSize; // ustaw pozycję kolejnego fragmentu
+            position += fragmentSize;
         }
-        while (position <= fi.Length); // pętlę powtarzam dopóki nie skończy się plik
+        while (position <= fi.Length);
 
-        fm.DeleteTempFile(tempFilePath, out errorCode); // usuń plik tymczasowy
+        fm.DeleteTempFile(tempFilePath, out errorCode);
 
         if (errorCode == ErrorCode.DeletingTempFileFailed)
             return EncryptionResult.Fail("Temporary file couldn't be deleted.");

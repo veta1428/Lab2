@@ -60,7 +60,7 @@ public class FileManagement
 
             Code = ErrorCode.Ok;
         }
-        catch // w razie błędu zwracam odpowiedni kod
+        catch
         {
             Code = ErrorCode.DeletingTempFileFailed;
         }
@@ -72,24 +72,23 @@ public class FileManagement
         {
             SetFileReadable(InputFilePath);
 
-            using (var fsInput = new FileStream(InputFilePath, FileMode.Open)) // tworzę strumień czytający plik
+            using (var fsInput = new FileStream(InputFilePath, FileMode.Open))
             {
                 var listBytes = new List<byte>();
                 int currByte;
 
-                fsInput.Seek(Offset, SeekOrigin.Begin); // ustalam początek zczytywania danych
+                fsInput.Seek(Offset, SeekOrigin.Begin);
 
-                while ((currByte = fsInput.ReadByte()) != -1 && listBytes.Count < Count) // czytam plik po bajcie dopóki się nie skończy, chyba, że program wczyta maksymalną długość fragmentu
-                    listBytes.Add((byte) currByte); // dodaję bajty do listy
-
+                while ((currByte = fsInput.ReadByte()) != -1 && listBytes.Count < Count)
+                    listBytes.Add((byte) currByte);
                 Code = ErrorCode.Ok;
 
                 fsInput.Dispose();
                 fsInput.Close();
-                return listBytes.ToArray(); // zwracam tablicę bajtów
+                return listBytes.ToArray();
             }
         }
-        catch // w razie błędu zwracam odpowiedni kod
+        catch
         {
             Code = ErrorCode.GetFileFailed;
             return new byte[1];
@@ -100,20 +99,20 @@ public class FileManagement
     {
         try
         {
-            if (Offset == 0) // usuwam plik jeżeli program zaczyna czytać początek pliku, ale plik o takiej samej nazwie już istnieje
+            if (Offset == 0)
                 if (File.Exists(SaveFilePath))
                     File.Delete(SaveFilePath);
 
-            using (var fsOutput = new FileStream(SaveFilePath, FileMode.Append)) // otwieram strumień zapisujący plik
+            using (var fsOutput = new FileStream(SaveFilePath, FileMode.Append))
             {
-                fsOutput.Write(OutputFileFragment, 0, OutputFileFragment.Length); // zapisuję bajty w pliku docelowym
+                fsOutput.Write(OutputFileFragment, 0, OutputFileFragment.Length);
 
                 fsOutput.Dispose();
                 fsOutput.Close();
                 Code = ErrorCode.Ok;
             }
         }
-        catch // w razie błędu zwracam odpowiedni kod
+        catch
         {
             Code = ErrorCode.SaveFileFailed;
 
