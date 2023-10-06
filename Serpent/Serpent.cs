@@ -1,208 +1,549 @@
-﻿//namespace Serpent;
+﻿using System.Collections;
+using static Serpent.Constants;
+using static System.Reflection.Metadata.BlobBuilder;
 
-//public class Serpent
-//{
-//    public class SerpentKeySchedule
-//    {
-//        private const uint FRAC = 0x9e3779b9;
+namespace Serpent;
 
-//        private static uint RotateLeft(uint value, int n)
-//        {
-//            return (value << n) | (value >> (32 - n));
-//        }
+public class Serpent : ICipher
+{
+    public int Rounds { get; set; } = 32;
 
-//        private static void GenerateWords(uint[] words, uint[] key)
-//        {
-//            uint[] temp = new uint[140];
-//            for (int i = 0; i < 8; i++)
-//            {
-//                temp[i] = key[i];
-//            }
-//            for (int i = 8; i < 140; i++)
-//            {
-//                temp[i] = RotateLeft((words[i - 8] ^ words[i - 5] ^ words[i - 3] ^ words[i - 1] ^ FRAC ^ (uint)(i - 8)), 11);
-//                words[i - 8] = temp[i];
-//            }
-//        }
+    public int BlockSizeBytes { get; set; } = 16;
 
-//        private static void GenerateSubKeys(uint[] words, uint[][] subKeys)
-//        {
-//            for (int i = 0; i < 33; i++)
-//            {
-//                uint p = (uint)(32 + 3 - i) % 32;
-//                for (int k = 0; k < 32; k++)
-//                {
-//                    uint s = SBoxes[p % 8][((words[4 * i + 0] >> k) & 0x1) << 0 |
-//                                          ((words[4 * i + 1] >> k) & 0x1) << 1 |
-//                                          ((words[4 * i + 2] >> k) & 0x1) << 2 |
-//                                          ((words[4 * i + 3] >> k) & 0x1) << 3];
-//                    for (int j = 0; j < 4; j++)
-//                    {
-//                        subKeys[i][j] |= ((s >> j) & 0x1) << k;
-//                    }
-//                }
+    public int BlockSizeBits => BlockSizeBytes * 8;
 
-//                // Apply initial permutation (IP) to the subkey
-//                uint[] permutedSubKey = new uint[4];
-//                for (int j = 0; j < 4; j++)
-//                {
-//                    for (int bit = 0; bit < 32; bit++)
-//                    {
-//                        int sourceBit = (32 * bit) % 127;
-//                        int sourceWordIndex = sourceBit / 32;
-//                        int sourceBitIndex = sourceBit % 32;
+    public byte[] Decrypt(byte[] encryptedText, byte[] key, BlockMode blockMode = BlockMode.ECB, PaddingMode paddingMode = PaddingMode.ANSI)
+    {
+        BitArray encryptedBits = new BitArray(encryptedText);
+        BitArray[] blocks = GetBlocks(encryptedBits, paddingMode);
+        BitArray crypted;
 
-//                        permutedSubKey[j] |= ((subKeys[i][sourceWordIndex] >> sourceBitIndex) & 0x1) << bit;
-//                    }
-//                }
+        int[][] keys = KeySchedule(key);
 
-//                // Update the subkey with the permuted value
-//                Array.Copy(permutedSubKey, subKeys[i], 4);
-//            }
-//        }
+        switch (blockMode)
+        {
+            case BlockMode.ECB:
+                {
+                    crypted = new BitArray(0);
 
-//        // Placeholder S-boxes, replace with actual S-boxes used in your implementation
-//        private static readonly uint[][] SBoxes = new uint[][]
-//        {
-//            new uint[] { 3, 8,15, 1,10, 6, 5,11,14,13, 4, 2, 7, 0, 9,12 },/* S0: */
-//	        new uint[] {15,12, 2, 7, 9, 0, 5,10, 1,11,14, 8, 6,13, 3, 4 },/* S1: */
-//	        new uint[] { 8, 6, 7, 9, 3,12,10,15,13, 1,14, 4, 0,11, 5, 2 },/* S2: */
-//	        new uint[] { 0,15,11, 8,12, 9, 6, 3,13, 1, 2, 4,10, 7, 5,14 },/* S3: */
-//	        new uint[] { 1,15, 8, 3,12, 0,11, 6, 2, 5, 4,10, 9,14, 7,13 },/* S4: */
-//	        new uint[] {15, 5, 2,11, 4,10, 9,12, 0, 3,14, 8,13, 6, 7, 1 },/* S5: */
-//	        new uint[] { 7, 2,12, 5, 8, 4, 6,11,14, 9, 1,15,13, 3,10, 0 },/* S6: */
-//	        new uint[] { 1,13,15, 0,14, 8, 2,11, 7, 4,12,10, 9, 3, 5, 6 },/* S7: */
-//	        new uint[] { 3, 8,15, 1,10, 6, 5,11,14,13, 4, 2, 7, 0, 9,12 },/* S0: */
-//	        new uint[] {15,12, 2, 7, 9, 0, 5,10, 1,11,14, 8, 6,13, 3, 4 },/* S1: */
-//	        new uint[] { 8, 6, 7, 9, 3,12,10,15,13, 1,14, 4, 0,11, 5, 2 },/* S2: */
-//	        new uint[] { 0,15,11, 8,12, 9, 6, 3,13, 1, 2, 4,10, 7, 5,14 },/* S3: */
-//	        new uint[] { 1,15, 8, 3,12, 0,11, 6, 2, 5, 4,10, 9,14, 7,13 },/* S4: */
-//	        new uint[] {15, 5, 2,11, 4,10, 9,12, 0, 3,14, 8,13, 6, 7, 1 },/* S5: */
-//	        new uint[] { 7, 2,12, 5, 8, 4, 6,11,14, 9, 1,15,13, 3,10, 0 },/* S6: */
-//	        new uint[] { 1,13,15, 0,14, 8, 2,11, 7, 4,12,10, 9, 3, 5, 6 },/* S7: */
-//	        new uint[] { 3, 8,15, 1,10, 6, 5,11,14,13, 4, 2, 7, 0, 9,12 },/* S0: */
-//	        new uint[] {15,12, 2, 7, 9, 0, 5,10, 1,11,14, 8, 6,13, 3, 4 },/* S1: */
-//	        new uint[] { 8, 6, 7, 9, 3,12,10,15,13, 1,14, 4, 0,11, 5, 2 },/* S2: */
-//	        new uint[] { 0,15,11, 8,12, 9, 6, 3,13, 1, 2, 4,10, 7, 5,14 },/* S3: */
-//	        new uint[] { 1,15, 8, 3,12, 0,11, 6, 2, 5, 4,10, 9,14, 7,13 },/* S4: */
-//	        new uint[] {15, 5, 2,11, 4,10, 9,12, 0, 3,14, 8,13, 6, 7, 1 },/* S5: */
-//	        new uint[] { 7, 2,12, 5, 8, 4, 6,11,14, 9, 1,15,13, 3,10, 0 },/* S6: */
-//	        new uint[] { 1,13,15, 0,14, 8, 2,11, 7, 4,12,10, 9, 3, 5, 6 },/* S7: */
-//	        new uint[] { 3, 8,15, 1,10, 6, 5,11,14,13, 4, 2, 7, 0, 9,12 },/* S0: */
-//	        new uint[] {15,12, 2, 7, 9, 0, 5,10, 1,11,14, 8, 6,13, 3, 4 },/* S1: */
-//	        new uint[] { 8, 6, 7, 9, 3,12,10,15,13, 1,14, 4, 0,11, 5, 2 },/* S2: */
-//	        new uint[] { 0,15,11, 8,12, 9, 6, 3,13, 1, 2, 4,10, 7, 5,14 },/* S3: */
-//	        new uint[] { 1,15, 8, 3,12, 0,11, 6, 2, 5, 4,10, 9,14, 7,13 },/* S4: */
-//	        new uint[] {15, 5, 2,11, 4,10, 9,12, 0, 3,14, 8,13, 6, 7, 1 },/* S5: */
-//	        new uint[] { 7, 2,12, 5, 8, 4, 6,11,14, 9, 1,15,13, 3,10, 0 },/* S6: */
-//	        new uint[] { 1,13,15, 0,14, 8, 2,11, 7, 4,12,10, 9, 3, 5, 6 } /* S7: */
-//        };
+                    for (int i = 0; i < blocks.Length; i++)
+                    {
+                        var byteBlock = new byte[BlockSizeBytes];
+                        blocks[i].CopyTo(new byte[BlockSizeBytes], 0);
+                        var cryptedBlock = BlockEncrypt(byteBlock, keys);
+                        crypted = ConcatBitArrays(crypted, new BitArray(cryptedBlock));
+                    }
+                    break;
+                }
+            case BlockMode.CFB:
+                throw new Exception();
+            case BlockMode.OFB:
+                throw new Exception();
+            default:
+                throw new Exception();
+        }
 
-//        public static uint[][] GenerateSubKeys(uint[] key)
-//        {
-//            uint[] words = new uint[132];
-//            uint[][] subKeys = new uint[33][];
-//            for (int i = 0; i < 33; i++)
-//            {
-//                subKeys[i] = new uint[4];
-//            }
+        var cryptedBytes = new byte[crypted.Count / 8];
+        crypted.CopyTo(cryptedBytes, 0);
+        return cryptedBytes;
+    }
 
-//            GenerateWords(words, key);
-//            GenerateSubKeys(words, subKeys);
+    public byte[] Encrypt(byte[] plainText, byte[] key, BlockMode blockMode = BlockMode.ECB, PaddingMode paddingMode = PaddingMode.ANSI)
+    {
+        BitArray openTextBits = new BitArray(plainText);
+        BitArray[] blocks = GetBlocks(openTextBits, paddingMode);
+        BitArray crypted;
 
-//            return subKeys;
-//        }
+        int[][] keys = KeySchedule(key);
 
-//        public static byte[] EncryptBlock(byte[] block, byte[] key)
-//        {
-//            // Apply initial permutation
-//            block = InitialPermutation(block);
+        switch (blockMode)
+        {
+            case BlockMode.ECB:
+                {
+                    crypted = new BitArray(0);
 
-//            uint[][] subKeys = SerpentKeySchedule.GenerateSubKeys(key);
-//            uint[] words = new uint[4];
+                    for (int i = 0; i < blocks.Length; i++)
+                    {
+                        var byteBlock = new byte[BlockSizeBytes];
+                        blocks[i].CopyTo(new byte[BlockSizeBytes], 0);
+                        var cryptedBlock = BlockDecrypt(byteBlock, keys);
+                        crypted = ConcatBitArrays(crypted, new BitArray(cryptedBlock));
+                    }
+                    break;
+                }
+            case BlockMode.CFB:
+                throw new Exception();
+            case BlockMode.OFB:
+                throw new Exception();
+            default:
+                throw new Exception();
+        }
 
-//            // Split the 128-bit block into four 32-bit words
-//            for (int i = 0; i < 4; i++)
-//            {
-//                words[i] = BitConverter.ToUInt32(block, i * 4);
-//            }
+        var cryptedBytes = new byte[crypted.Count / 8];
+        crypted.CopyTo(cryptedBytes, 0);
+        return cryptedBytes;
+    }
 
-//            // Perform the encryption rounds
-//            for (int round = 0; round < 32; round++)
-//            {
-//                // Substitution layer
-//                for (int i = 0; i < 4; i++)
-//                {
-//                    words[i] ^= subKeys[round * 4 + i];
-//                    words[i] = SerpentSBox(words[i]);
-//                }
+    private int[][] KeySchedule(byte[] key)
+    {
+        var w = new int[4 * (Rounds + 1)]; // Initialize an array to hold the key schedule
+        var offset = 0;
+        var limit = key.Length / 4; // Determine the number of 32-bit words in the key
+        int i, j;
 
-//                // Linear transformation
-//                LinearTransformation(words, subKeys[round]);
-//            }
+        // Convert the key bytes into 32-bit words
+        for (i = 0; i < limit; i++)
+            w[i] = (key[offset++] & 0xFF) |
+                   ((key[offset++] & 0xFF) << 8) |
+                   ((key[offset++] & 0xFF) << 16) |
+                   ((key[offset++] & 0xFF) << 24);
 
-//            // Final key addition
-//            for (int i = 0; i < 4; i++)
-//            {
-//                words[i] ^= subKeys[128 + i];
-//            }
+        if (i < 8)
+            w[i] = 1; // If the key is less than 256 bits, set the remaining words to 1
 
-//            // Combine the four 32-bit words into a byte array
-//            byte[] encryptedBlock = new byte[16];
-//            for (int i = 0; i < 4; i++)
-//            {
-//                byte[] wordBytes = BitConverter.GetBytes(words[i]);
-//                Array.Copy(wordBytes, 0, encryptedBlock, i * 4, 4);
-//            }
+        int t;
+        for (i = 8, j = 0; i < 16; i++)
+        {
+            t = (int)(w[j] ^ w[i - 5] ^ w[i - 3] ^ w[i - 1] ^ PHI ^ j++);
+            w[i] = (t << 11) | (int)((uint)t >> 21); // Key expansion using a nonlinear function and bit shifting
+        }
 
-//            // Apply final permutation
-//            encryptedBlock = FinalPermutation(encryptedBlock);
+        // Expand the key using a linear function
+        for (i = 0, j = 8; i < 8;)
+            w[i++] = w[j++];
 
-//            return encryptedBlock;
-//        }
+        limit = 4 * (Rounds + 1);
 
-//        private static void LinearTransformation(uint[] block, uint[] subKey)
-//        {
-//            uint[] X = new uint[4];
-//            uint[] B = new uint[5];
+        for (; i < limit; i++)
+        {
+            t = (int)(w[i - 8] ^ w[i - 5] ^ w[i - 3] ^ w[i - 1] ^ PHI ^ i);
+            w[i] = (t << 11) | (int)((uint)t >> 21); // Key expansion using a nonlinear function and bit shifting
+        }
 
-//            for (short i = 0; i < 4; i++)
-//            {
-//                X[i] = SBoxes[i][(int)(block[i] ^ subKey[i])];
-//            }
+        var k = new int[limit]; // Create a new array to store the expanded key
+        for (i = 0; i < Rounds + 1; i++)
+        {
+            var box = (Rounds + 3 - i) % Rounds;
+            var a = w[4 * i];
+            var b = w[4 * i + 1];
+            var c = w[4 * i + 2];
+            var d = w[4 * i + 3];
 
-//            X[0] = RotateLeft(X[0], 13);
-//            X[2] = RotateLeft(X[2], 3);
-//            X[1] ^= X[0] ^ X[2];
-//            X[3] ^= X[2] ^ (X[0] << 3);
-//            X[1] = RotateLeft(X[1], 1);
-//            X[3] = RotateLeft(X[3], 7);
-//            X[0] ^= X[1] ^ X[3];
-//            X[2] ^= X[3] ^ (X[1] << 7);
-//            X[0] = RotateLeft(X[0], 5);
-//            X[2] = RotateLeft(X[2], 22);
+            for (j = 0; j < 32; j++)
+            {
+                var inV =
+                    GetBit(a, j) |
+                    (GetBit(b, j) << 1) |
+                    (GetBit(c, j) << 2) |
+                    (GetBit(d, j) << 3);
+                var outV = S(box, inV); // Apply the S-box substitution
+                k[4 * i] |= GetBit(outV, 0) << j;
+                k[4 * i + 1] |= GetBit(outV, 1) << j;
+                k[4 * i + 2] |= GetBit(outV, 2) << j;
+                k[4 * i + 3] |= GetBit(outV, 3) << j;
+            }
+        }
 
-//            for (short i = 0; i < 4; i++)
-//            {
-//                block[i] = X[i];
-//                B[i + 1] = X[i];
-//            }
-//        }
+        var K = new int[Rounds + 1][]; // Create a new array to hold the round keys
+        for (var kn = 0; kn < K.Length; kn++)
+            K[kn] = new int[4];
 
-//        private static byte[] InitialPermutation(byte[] block)
-//        {
-//            // Implement the initial permutation here
-//            // Rearrange the bits of the block according to the permutation table
-//            // ...
-//            return block;
-//        }
+        // Split the expanded key into round keys
+        for (i = 0, offset = 0; i < Rounds + 1; i++)
+        {
+            K[i][0] = k[offset++];
+            K[i][1] = k[offset++];
+            K[i][2] = k[offset++];
+            K[i][3] = k[offset++];
+        }
 
-//        private static byte[] FinalPermutation(byte[] block)
-//        {
-//            // Implement the final permutation here
-//            // Rearrange the bits of the block according to the permutation table
-//            // ...
-//            return block;
-//        }
-//    }
-//}
+        // Apply an initial permutation to each round key
+        for (i = 0; i < Rounds + 1; i++)
+            K[i] = IP(K[i]);
+
+        return K; // Return the generated round keys
+    }
+
+    public byte[] BlockEncrypt(byte[] block, int[][] Khat)
+    {
+        int inOffset = 0;
+        int[] x =
+        {
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset++] & 0xFF) << 24),
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset++] & 0xFF) << 24),
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset++] & 0xFF) << 24),
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset++] & 0xFF) << 24)
+        };
+        var Bhat = IP(x);
+
+        for (var i = 0; i < Rounds; i++)
+            Bhat = R(i, Bhat, Khat);
+
+        x = FP(Bhat);
+
+        int a = x[0], b = x[1], c = x[2], d = x[3];
+        byte[] result =
+        {
+            (byte) a, (byte) (int) ((uint) a >> 8), (byte) (int) ((uint) a >> 16), (byte) (int) ((uint) a >> 24),
+            (byte) b, (byte) (int) ((uint) b >> 8), (byte) (int) ((uint) b >> 16), (byte) (int) ((uint) b >> 24),
+            (byte) c, (byte) (int) ((uint) c >> 8), (byte) (int) ((uint) c >> 16), (byte) (int) ((uint) c >> 24),
+            (byte) d, (byte) (int) ((uint) d >> 8), (byte) (int) ((uint) d >> 16), (byte) (int) ((uint) d >> 24)
+        };
+        return result;
+    }
+
+    public byte[] BlockDecrypt(byte[] block, int[][] Khat)
+    {
+        int inOffset = 0;
+        int[] x =
+        {
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset++] & 0xFF) << 24),
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset++] & 0xFF) << 24),
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset++] & 0xFF) << 24),
+            (block[inOffset++] & 0xFF) | ((block[inOffset++] & 0xFF) << 8) |
+            ((block[inOffset++] & 0xFF) << 16) | ((block[inOffset] & 0xFF) << 24)
+        };
+        var Bhat = FPinverse(x);
+
+        for (var i = Rounds - 1; i >= 0; i--)
+            Bhat = Rinverse(i, Bhat, Khat);
+
+        x = IPinverse(Bhat);
+
+        int a = x[0], b = x[1], c = x[2], d = x[3];
+        byte[] result =
+        {
+            (byte) a, (byte) (int) ((uint) a >> 8), (byte) (int) ((uint) a >> 16), (byte) (int) ((uint) a >> 24),
+            (byte) b, (byte) (int) ((uint) b >> 8), (byte) (int) ((uint) b >> 16), (byte) (int) ((uint) b >> 24),
+            (byte) c, (byte) (int) ((uint) c >> 8), (byte) (int) ((uint) c >> 16), (byte) (int) ((uint) c >> 24),
+            (byte) d, (byte) (int) ((uint) d >> 8), (byte) (int) ((uint) d >> 16), (byte) (int) ((uint) d >> 24)
+        };
+
+        return result;
+    }
+
+    /// <summary>
+    /// Extracts the i-th bit from the integer x.
+    /// </summary>
+    /// <param name="x">Integer to extract from</param>
+    /// <param name="i">Index</param>
+    /// <returns></returns>
+    private int GetBit(int x, int i)
+    {
+        return (int)((uint)x >> i) & 0x01;
+    }
+
+    /// <summary>
+    /// Extracts the i-th bit from the array x.
+    /// </summary>
+    /// <param name="x">Array of integers to extract from</param>
+    /// <param name="i">Index</param>
+    /// <returns></returns>
+    private int GetBit(int[] x, int i)
+    {
+        return (int)((uint)x[i / 32] >> (i % 32)) & 0x01;
+    }
+
+    /// <summary>
+    /// Sets or clears the i-th bit in the array x based on the value v (1 for set, 0 for clear).
+    /// </summary>
+    /// <param name="x"></param>
+    /// <param name="i"></param>
+    /// <param name="v"></param>
+    private void SetBit(int[] x, int i, int v)
+    {
+        if ((v & 0x01) == 1)
+            x[i / 32] |= 1 << (i % 32); // set it
+        else
+            x[i / 32] &= ~(1 << (i % 32)); // clear it
+    }
+
+    private static int GetNibble(int x, int i)
+    {
+        return (int)((uint)x >> (4 * i)) & 0x0F;
+    }
+
+    private int[] IP(int[] x)
+    {
+        return Permutate(IPtable, x);
+    }
+
+    private int[] IPinverse(int[] x)
+    {
+        return Permutate(FPtable, x);
+    }
+
+    private int[] FP(int[] x)
+    {
+        return Permutate(FPtable, x);
+    }
+
+    private int[] FPinverse(int[] x)
+    {
+        return Permutate(IPtable, x);
+    }
+
+    private int[] Permutate(byte[] T, int[] x)
+    {
+        var result = new int[4];
+        for (var i = 0; i < 128; i++)
+            SetBit(result, i, GetBit(x, T[i]));
+        return result;
+    }
+
+    private int[] xor128(int[] x, int[] y)
+    {
+        return new[] { x[0] ^ y[0], x[1] ^ y[1], x[2] ^ y[2], x[3] ^ y[3] };
+    }
+
+    /// <summary>
+    /// Performs an S-box substitution on x using the S-box table. The box parameter determines which S-box to use, and x is the input to the S-box.
+    /// </summary>
+    /// <param name="box">Number of box to use</param>
+    /// <param name="x">Input to s-box</param>
+    /// <returns></returns>
+    private int S(int box, int x)
+    {
+        return Sbox[box % 32][x] & 0x0F;
+    }
+
+    private int Sinverse(int box, int x)
+    {
+        return SboxInverse[box % 32][x] & 0x0F;
+    }
+
+    private int[] Shat(int box, int[] x)
+    {
+        var result = new int[4];
+        for (var i = 0; i < 4; i++)
+            for (var nibble = 0; nibble < 8; nibble++)
+                result[i] |= S(box, GetNibble(x[i], nibble)) << (nibble * 4);
+        return result;
+    }
+
+    private int[] ShatInverse(int box, int[] x)
+    {
+        var result = new int[4];
+        for (var i = 0; i < 4; i++)
+            for (var nibble = 0; nibble < 8; nibble++)
+                result[i] |= Sinverse(box, GetNibble(x[i], nibble)) << (nibble * 4);
+        return result;
+    }
+
+    private int[] LT(int[] x)
+    {
+        return Transform(LTtable, x);
+    }
+
+    private int[] LTinverse(int[] x)
+    {
+        return Transform(LTtableInverse, x);
+    }
+
+    private int[] Transform(byte[][] T, int[] x)
+    {
+        int j;
+        var result = new int[4];
+        for (var i = 0; i < 128; i++)
+        {
+            var b = 0;
+            j = 0;
+            while (T[i][j] != xFF)
+            {
+                b ^= GetBit(x, T[i][j] & 0x7F);
+                j++;
+            }
+            SetBit(result, i, b);
+        }
+
+        return result;
+    }
+
+    private int[] R(int i, int[] Bhati, int[][] Khat)
+    {
+        var xored = xor128(Bhati, Khat[i]);
+        var Shati = Shat(i, xored);
+        int[] BhatiPlus1;
+        if (0 <= i && i <= Rounds - 2)
+            BhatiPlus1 = LT(Shati);
+        else if (i == Rounds - 1)
+            BhatiPlus1 = xor128(Shati, Khat[Rounds]);
+        else
+            throw new Exception(
+                "Round " + i + " is out of 0.." + (Rounds - 1) + " range");
+
+        return BhatiPlus1;
+    }
+
+    private int[] Rinverse(int i, int[] BhatiPlus1, int[][] Khat)
+    {
+        int[] Shati;
+        if (0 <= i && i <= Rounds - 2)
+            Shati = LTinverse(BhatiPlus1);
+        else if (i == Rounds - 1)
+            Shati = xor128(BhatiPlus1, Khat[Rounds]);
+        else
+            throw new Exception(
+                "Round " + i + " is out of 0.." + (Rounds - 1) + " range");
+
+        var xored = ShatInverse(i, Shati);
+        var Bhati = xor128(xored, Khat[i]);
+
+        return Bhati;
+    }
+
+    private BitArray ConcatBitArrays(BitArray first, BitArray second)
+    {
+        BitArray concated = new BitArray(first.Length + second.Length);
+
+        for (int i = 0; i < first.Length; i++)
+            concated[i] = first[i];
+
+        for (int i = 0; i < second.Length; i++)
+            concated[i + first.Length] = second[i];
+
+        return concated;
+    }
+
+    private BitArray[] GetBlocks(BitArray text, PaddingMode PaddingMode = PaddingMode.ANSI)
+    {
+        int blocksNumber = text.Count / BlockSizeBits;
+        int left_numbers = text.Count % BlockSizeBits;
+
+
+        if (left_numbers != 0)
+            blocksNumber++;
+
+        BitArray[] blocks = new BitArray[blocksNumber];
+
+        for (int i = 0; i < blocksNumber; i++)
+            blocks[i] = GetRange(text, i * BlockSizeBits, (i + 1) * BlockSizeBits);
+
+        if (left_numbers == 0)
+            return blocks;
+
+        switch (PaddingMode)
+        {
+            case PaddingMode.ANSI:
+                {
+                    byte emptyBytes = Convert.ToByte((BlockSizeBits - left_numbers) / 8);
+                    byte fullBytes = (byte)(left_numbers / 8);
+
+                    byte[] textInBytes = new byte[BlockSizeBytes];
+
+                    blocks[blocksNumber - 1].CopyTo(textInBytes, 0);
+
+                    for (int i = fullBytes; i < BlockSizeBytes; i++)
+                    {
+                        if (i == BlockSizeBytes - 1)
+                            textInBytes[i] = emptyBytes;
+                        else
+                            textInBytes[i] = 0;
+                    }
+
+                    blocks[blocksNumber - 1] = new BitArray(textInBytes);
+
+                    break;
+                }
+
+            case PaddingMode.ISO:
+                {
+                    Random r = new Random();
+
+                    byte emptyBytes = Convert.ToByte((BlockSizeBits - left_numbers) / 8);
+                    byte fullBytes = (byte)(left_numbers / 8);
+
+                    byte[] textInBytes = new byte[BlockSizeBytes];
+
+                    blocks[blocksNumber - 1].CopyTo(textInBytes, 0);
+
+                    for (int i = fullBytes; i < BlockSizeBytes; i++)
+                    {
+                        if (i == BlockSizeBytes - 1)
+                            textInBytes[i] = emptyBytes;
+                        else
+                            textInBytes[i] = (byte)r.Next(0, 255);
+                    }
+
+                    blocks[blocksNumber - 1] = new BitArray(textInBytes);
+
+                    break;
+                }
+            case PaddingMode.PKC:
+                {
+                    byte emptyBytes = Convert.ToByte((BlockSizeBits - left_numbers) / 8);
+                    byte fullBytes = (byte)(left_numbers / 8);
+
+                    byte[] textInBytes = new byte[BlockSizeBytes];
+
+                    blocks[blocksNumber - 1].CopyTo(textInBytes, 0);
+
+                    for (int i = fullBytes; i < BlockSizeBytes; i++)
+                        textInBytes[i] = emptyBytes;
+
+                    blocks[blocksNumber - 1] = new BitArray(textInBytes);
+
+                    break;
+                }
+            case PaddingMode.ISO_EIC:
+                {
+                    byte emptyBytes = Convert.ToByte((BlockSizeBits - left_numbers) / 8);
+                    byte fullBytes = (byte)(left_numbers / 8);
+
+                    byte[] textInBytes = new byte[BlockSizeBytes];
+
+                    blocks[blocksNumber - 1].CopyTo(textInBytes, 0);
+
+                    for (int i = fullBytes; i < BlockSizeBytes; i++)
+                    {
+                        if (i == 0)
+                            textInBytes[i] = 128;
+                        else
+                            textInBytes[i] = 0;
+                    }
+
+                    blocks[blocksNumber - 1] = new BitArray(textInBytes);
+
+                    break;
+                }
+            case PaddingMode.None:
+                return blocks;
+            default:
+                break;
+        }
+        return blocks;
+    }
+
+    /// <summary>
+    /// Gets part of array into new array from startIndex and to bit before endIndex
+    /// </summary>
+    /// <param name="bits"></param>
+    /// <param name="startIndex"></param>
+    /// <param name="endIndex"></param>
+    /// <returns></returns>
+    private BitArray GetRange(BitArray bits, int startIndex, int endIndex)
+    {
+        BitArray range = new BitArray(endIndex - startIndex);
+
+        if (startIndex < 0 ||
+            startIndex >= bits.Length ||
+            endIndex < 0 ||
+            startIndex >= endIndex)
+            throw new ArgumentOutOfRangeException("Index of range was out of range");
+
+        if (endIndex >= bits.Length)
+            endIndex = bits.Length;
+
+        for (int i = startIndex; i < endIndex; i++)
+            range[i - startIndex] = bits[i];
+
+        return range;
+    }
+}

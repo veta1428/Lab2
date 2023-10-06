@@ -11,27 +11,17 @@ public class SerpentCipher
 
     public EncryptionResult Encrypt(string FilePath, byte[] Key, int Rounds, EncryptionMode EncrMode)
     {
-        Mode Mode = Mode.Standard;
         var fm = new FileManagement();
-        SerpentAlgorithm sa;
+        SerpentAlgorithm sa = new SerpentStandardMode(); ;
         var saltBytes = new byte[BlockSize];
         rng.GetNonZeroBytes(saltBytes);
         var iv = new byte[BlockSize];
         rng.GetBytes(iv);
 
-        switch (Mode)
-        {
-            case Mode.Standard:
-                sa = new SerpentStandardMode();
-                break;
-            default:
-                throw new Exception();
-        }
-
         var position = 0;
         var destFilePath = Path.ChangeExtension(FilePath, ".serpent");
         var fi = new FileInfo(FilePath);
-        var fragmentSize = 1024 * 1024; // 1 MB (musi dać się wyciągnąć pierwiastek czwartego stopnia)
+        var fragmentSize = 1024 * 1024;
         var tempFilePath = FilePath + ".temp";
         var tempFilePath2 = FilePath + ".temp2";
         Encoding enc = new UTF8Encoding();
@@ -133,11 +123,9 @@ public class SerpentCipher
                 }
                 else
                 {
-                    return EncryptionResult.Fail("Selected ciphering type is not implemented. ");
+                    return EncryptionResult.Fail("Selected ciphering type is not implemented.");
                 }
             }
-
-            // =================
 
             fm.SaveFileFragment(destFilePath, position, OutputFileFragment.ToArray(), out errorCode); // zapisuję kolejną część pliku do pliku docelowego
 
@@ -147,9 +135,6 @@ public class SerpentCipher
             }
 
             position += fragmentSize; // ustaw pozycję kolejnego fragmentu
-            var encryptionProgressChangedEventData = new EncryptionProgressChangedEventArgs(((int)((double)position / fi.Length * 100.0)), ActionType.Encryption); // inicjalizuję dane dla event handlera (obliczony postęp, typ - szyfrowanie czy deszyfrowanie)
-            OnEncryptionProgressChanging(encryptionProgressChangedEventData); // wywołuję zdarzenie z utworzonymi wcześniej parametrami
-
         }
         while (position <= fi.Length); // pętlę powtarzam dopóki nie skończy się plik
 
@@ -181,19 +166,10 @@ public class SerpentCipher
         return EncryptionResult.Success();
     }
 
-    public EncryptionResult Decrypt(string FilePath, byte[] Key, int Rounds, Mode Mode, EncryptionMode EncrMode)
+    public EncryptionResult Decrypt(string FilePath, byte[] Key, int Rounds, EncryptionMode EncrMode)
     {
         var fm = new FileManagement();
-        SerpentAlgorithm sa;
-
-        switch (Mode)
-        {
-            case Mode.Standard:
-                sa = new SerpentStandardMode();
-                break;
-            default:
-                return EncryptionResult.Fail("Selected algorithm type is not implemented. ");
-        }
+        SerpentAlgorithm sa = new SerpentStandardMode(); ;
 
         var position = 0;
         var destFilePath = string.Empty;
@@ -225,33 +201,6 @@ public class SerpentCipher
                 roundBytesFromPtControlSum = listRoundsBytesFromPtControlSum.ToArray();
                 break;
             }
-        }
-
-        var areRoundsFromPtControlSumParsable = int.TryParse(enc.GetString(roundBytesFromPtControlSum), out var readRoundsFromPtControlSum);
-
-        if (!areRoundsFromPtControlSumParsable || readRoundsFromPtControlSum > 64)
-        {
-            return EncryptionResult.Fail("File isn't encrypted or it was encrypted with different algorithm.");
-        }
-
-        if (readRoundsFromPtControlSum != Rounds)
-        {
-            throw new Exception("???");
-            //if (Mode != Mode.Standard)
-            //{
-            //    var result = MessageBox.Show(string.Format("File was encrypted with different number of rounds ({0}) of Serpent algorithm than the one specified ({1}) and in algorithm type different than `Standard` it is impossible to decrypt by using this number of rounds. Do you want to change alogorithm type to 'Standard' and number of rounds to {0}? (WARNING: Decryption may take a long time for big files). ", readRoundsFromPtControlSum, Rounds), "Warning", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            //    return result == MessageBoxResult.Yes && Decrypt(FilePath, Key, readRoundsFromPtControlSum, Mode.Standard, EncrMode);
-            //}
-            //else
-            //{
-            //    var result = MessageBox.Show(string.Format("It looks like the file was encrypted with different number of rounds ({0}) of Serpent algorithm than the one specified ({1}) or file is not encrypted at all. Do you want to change the number of rounds to {0}?", readRoundsFromPtControlSum, Rounds), "Warning", MessageBoxButton.YesNo, MessageBoxImage.Question);
-
-            //    if (result == MessageBoxResult.Yes)
-            //    {
-            //        Rounds = readRoundsFromPtControlSum;
-            //        sa.Rounds = readRoundsFromPtControlSum;
-            //    }
-            //}
         }
 
         var expandedKey = sa.MakeKey(Key);
@@ -366,9 +315,6 @@ public class SerpentCipher
             }
 
             position += fragmentSize; // ustaw pozycję kolejnego fragmentu
-            var encryptionProgressChangedEventData = new EncryptionProgressChangedEventArgs((int)((double)position / fi.Length * 100.0), ActionType.Decryption); // inicjalizuję dane dla event handlera (obliczony postęp, typ - szyfrowanie czy deszyfrowanie)
-            OnEncryptionProgressChanging(encryptionProgressChangedEventData); // wywołuję zdarzenie z utworzonymi wcześniej parametrami
-
         }
         while (position <= fi.Length); // pętlę powtarzam dopóki nie skończy się plik
 
@@ -379,34 +325,6 @@ public class SerpentCipher
 
         return EncryptionResult.Success();
     }
-
-
-    public static byte[] RandomizeKey() // Losowanie kluczy
-    {
-        var key = new byte[DefaultKeySize];
-        rng.GetNonZeroBytes(key);
-        return key;
-    }
-
-    public event EncryptionProgressChangedEventHandler EncryptionProgressChanged; // tworzę zdarzenie wywoływane przy zmianie stanu operacji szyfrowania
-
-    protected virtual void OnEncryptionProgressChanging(EncryptionProgressChangedEventArgs e) // metoda upewniająca się, że parametry przyjmowane przez zdarzenie nie są puste
-    {
-        EncryptionProgressChanged?.Invoke(this, e);
-    }
-}
-
-public enum ActionType
-{
-    Encryption,
-    Decryption,
-    ChangingText,
-}
-
-public enum Mode
-{
-    Standard,
-    BitSlice
 }
 
 public enum EncryptionMode
@@ -414,26 +332,6 @@ public enum EncryptionMode
     ECB,
     CBC
 }
-
-public enum KeyMode
-{
-    Chars,
-    Bytes
-}
-
-public class EncryptionProgressChangedEventArgs : EventArgs // klasa danych dla zdarzenia wywoływanego pprzy zmianie statusu szyfrowania bądź deszyfrowania
-{
-    public int Progress { get; } // deklaruję właściwości jednokierunkowe
-    public ActionType ActionType { get; }
-
-    public EncryptionProgressChangedEventArgs(int progress, ActionType actionType) // konstruktor
-    {
-        Progress = progress;
-        ActionType = actionType;
-    }
-}
-
-public delegate void EncryptionProgressChangedEventHandler(object sender, EncryptionProgressChangedEventArgs e); // deklaruję delegat zarządzający zdarzeniem wywoływanym przy zmianie stanu operacji szyfrowania lub deszyfrowania
 
 public static class ExtensionMethods
 {

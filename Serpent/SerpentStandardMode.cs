@@ -367,32 +367,4 @@ public class SerpentStandardMode : SerpentAlgorithm
 
         return Bhati;
     }
-
-    // int do 8 bajtowej reprezentacji (jako hex)
-    public string IntToString(int n)
-    {
-        var buf = new char[8];
-
-        for (var i = 7; i >= 0; i--)
-        {
-            buf[i] = HEX_DIGITS[n & 0x0F];
-            n = (int) ((uint) n >> 4);
-        }
-
-        return new string(buf);
-    }
-    
-    // byte array do ciągu znaków jako hex (w odwróconej kolejności, little endian)
-    public string ToReversedString(byte[] ba)
-    {
-        var length = ba.Length;
-        var buf = new char[length * 2];
-        for (int i = length - 1, j = 0, k; i >= 0;)
-        {
-            k = ba[i--];
-            buf[j++] = HEX_DIGITS[(int) ((uint) k >> 4) & 0x0F];
-            buf[j++] = HEX_DIGITS[k & 0x0F];
-        }
-        return new string(buf);
-    }
 }

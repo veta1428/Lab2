@@ -15,7 +15,8 @@ public class Program
         builder.Services.AddControllers();
         builder.Services.AddSingleton<SessionManager>();
         builder.Services.AddScoped<ISessionAccessor, SessionAccessor>();
-
+        builder.Services.Configure<Server.Options.SessionOptions>(builder.Configuration.GetRequiredSection("SessionOptions"));
+        
         var app = builder.Build();
 
         // Configure the HTTP request pipeline.

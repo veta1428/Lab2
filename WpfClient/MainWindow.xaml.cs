@@ -38,7 +38,7 @@ public partial class MainWindow : Window
     {
         var result = await _secureClient.InitializeAsync();
 
-        if (result.IsSuccessful)
+        if (!result.IsSuccessful)
         {
             MessageBox.Show("Critical fail, shutting down", "Error");
             Application.Current.Shutdown();

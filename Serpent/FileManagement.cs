@@ -20,7 +20,7 @@ public class FileManagement
                 Code = ErrorCode.Ok;
             }
         }
-        catch // w razie błędu zwracam odpowiedni kod
+        catch
         {
             Code = ErrorCode.ShiftFileFailed;
         }
@@ -45,7 +45,7 @@ public class FileManagement
                 Code = ErrorCode.Ok;
             }
         }
-        catch // w razie błędu zwracam odpowiedni kod
+        catch
         {
             Code = ErrorCode.ExpandFileFailed;
         }

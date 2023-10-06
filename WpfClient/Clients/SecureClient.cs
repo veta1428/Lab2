@@ -13,10 +13,7 @@ public class SecureClient
 {
     private const string BaseUrl = "https://localhost:7164";
     private readonly HttpClient _httpClient;
-    //private string _sessionId;
-    //private byte[] _rsaPrivateKey;
     private byte[] _sessionKey;
-    //CookieContainer _cookies;
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
     public SecureClient()
@@ -24,12 +21,6 @@ public class SecureClient
     {
         _httpClient = new HttpClient();
     }
-
-    //private byte[] RsaPrivateKey
-    //{
-    //    get => Secure.Unprotect(_rsaPrivateKey);
-    //    set => Secure.Protect(value);
-    //}
 
     private byte[] SessionKey
     {
@@ -40,20 +31,12 @@ public class SecureClient
         } 
     }
 
-    //private Guid SessionId
-    //{
-    //    get => Guid.Parse(Secure.Unprotect(_sessionId));
-    //    set => Secure.Protect(value.ToString());
-    //}
-
     public async Task<RequestResult> InitializeAsync()
     {
         _httpClient.DefaultRequestHeaders.Clear();
         var rsa = RSA.Create();
-        var rsaPublicKey = rsa.ExportRSAPublicKey();
-        //RsaPrivateKey = rsa.ExportRSAPrivateKey();
 
-        var response = await _httpClient.PostAsJsonAsync(BaseUrl + "/api/session", rsaPublicKey);
+        var response = await _httpClient.PostAsJsonAsync(BaseUrl + "/api/session", rsa.ExportRSAPublicKey());
 
         if (response.StatusCode != HttpStatusCode.OK)
             return RequestResult.Fail(Error.Unknown);
@@ -64,11 +47,8 @@ public class SecureClient
 
         _httpClient.DefaultRequestHeaders.Add("cookie", cookies.GetCookieHeader(new Uri(BaseUrl)));
         byte[] sessionKeyCyfered = Convert.FromBase64String(await response.Content.ReadAsStringAsync());
+
         SessionKey = rsa.Decrypt(sessionKeyCyfered, RSAEncryptionPadding.Pkcs1);
-        //Cookie? sessionCookie = _cookies.GetCookies(new Uri(BaseUrl)).First(c => c.Name == "SessionId");
-        //Guid sessionId;
-        //Guid.TryParse(sessionCookie!.Value, out sessionId);
-        //SessionId = sessionId;
         return RequestResult.Success();
     }
 
@@ -78,6 +58,8 @@ public class SecureClient
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return RequestResult<string>.Fail(Error.NotFound);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+            return RequestResult<string>.Fail(Error.UnAuthorized);
         if (!response.IsSuccessStatusCode)
             return RequestResult<string>.Fail(Error.Unknown);
 
@@ -94,6 +76,7 @@ public enum Error
 {
     None = 0,
     NotFound = 1,
+    UnAuthorized = 2,
     Unknown
 }
 
