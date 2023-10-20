@@ -11,9 +11,13 @@
             <TextBox x:Name="fileName" HorizontalAlignment="Left" VerticalAlignment="Top" TextWrapping="Wrap" Width="244" Height="25" Margin="10 10 10 10" FontSize="18"/>
             <Button Content="Search" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10 10 10 10" Click="OnSearchClick" Height="25"/>
             <Button Content="Reconnect" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10 10 10 10" Click="OnReconnectClick" Height="25"/>
+            <ComboBox x:Name="cbxCipher" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10 10 10 10" Height="25" Width="80" SelectionChanged="OnCipherChanged">
+                <ComboBoxItem Tag="AES" IsSelected="True">AES</ComboBoxItem>
+                <ComboBoxItem Tag="Serpent">Serpent</ComboBoxItem>
+            </ComboBox>
         </StackPanel>
         <ScrollViewer VerticalScrollBarVisibility="Visible" CanContentScroll="True" Margin="10,45,10,10">
-            <TextBlock x:Name="textBlock" TextWrapping="Wrap"/>
+            <TextBlock x:Name="textBlock" TextWrapping="Wrap" FontFamily="Consolas"/>
         </ScrollViewer>
     </Grid>
 </Window>

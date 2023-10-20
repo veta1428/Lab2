@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\AES\AES.csproj" />
     <ProjectReference Include="..\Serpent\Serpent.csproj" />
   </ItemGroup>
 

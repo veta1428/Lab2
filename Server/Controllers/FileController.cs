@@ -3,6 +3,7 @@ using Serpent;
 using Server.Accessors;
 using Server.Managers;
 using System.Net;
+using AES;
 
 namespace Server.Controllers;
 
@@ -21,9 +22,8 @@ public class FileController : ControllerBase
         _sessionManager = sessionManager;
     }
 
-    [HttpGet]
-    [Route("{filename}")]
-    public ActionResult<string> GetFileDecrypted([FromRoute] string fileName)
+    [HttpGet("serpent/{fileName}")]
+    public ActionResult<string> GetFileDecryptedSerpent([FromRoute] string fileName)
     {
         var currentSessionId = _sessionAccessor.CurrentSessionId;
         if (currentSessionId is null)
@@ -42,7 +42,7 @@ public class FileController : ControllerBase
 
         SerpentCipher sa = new SerpentCipher();
 
-        var encryptionResult = sa.Encrypt(fileName, sessionKey, 32, EncryptionMode.ECB);
+        var encryptionResult = sa.Encrypt(fileName, sessionKey, 32, EncryptionMode.CBC);
 
         if (!encryptionResult.IsSuccessful)
             return StatusCode((int)HttpStatusCode.InternalServerError); 
@@ -52,5 +52,35 @@ public class FileController : ControllerBase
         var fileEncrypted = System.IO.File.ReadAllBytes(exportFile);
 
         return Convert.ToBase64String(fileEncrypted);
+    }
+
+    [HttpGet("aes/{fileName}")]
+    public ActionResult<string> GetFileDecryptedAES([FromRoute] string fileName)
+    {
+        var currentSessionId = _sessionAccessor.CurrentSessionId;
+        if (currentSessionId is null)
+            return new UnauthorizedResult();
+
+        var session = _sessionManager.TryGetSession(currentSessionId.Value);
+
+        if (session is null)
+            return new UnauthorizedResult();
+
+        var sessionKey = session.SessionKey;
+
+        byte[] encryptionKey = new byte[AESCipher.KEY_BYTES];
+        byte[] iv = new byte[AESCipher.BLOCK_BYTES];
+        Array.Copy(sessionKey, encryptionKey, encryptionKey.Length);
+        Array.Copy(sessionKey, AESCipher.KEY_BYTES, iv, 0, iv.Length);
+
+        var filePath = Environment.CurrentDirectory + "\\" + fileName;
+        if (!System.IO.File.Exists(filePath))
+            return new NotFoundResult();
+
+        var aes = new AESCipher(encryptionKey, iv);
+
+        var encryptionResult = aes.Encrypt(System.IO.File.ReadAllBytes(filePath));
+
+        return Convert.ToBase64String(encryptionResult);
     }
 }

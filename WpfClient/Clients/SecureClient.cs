@@ -5,6 +5,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
+using AES;
+using System.Text;
 
 namespace WpfClient.Clients;
 
@@ -51,9 +53,10 @@ public class SecureClient
         return RequestResult.Success();
     }
 
-    public async Task<RequestResult<string>> GetFileAsync(string filepath)
+    public async Task<RequestResult<string>> GetFileAsync(string filepath, CipherType cipherType)
     {
-        var response = await _httpClient.GetAsync(BaseUrl + "/api/file/" + filepath);
+        var url = BaseUrl + $"/api/file/{cipherType.ToString().ToLower()}/{filepath}";
+        var response = await _httpClient.GetAsync(url);
 
         if (response.StatusCode == HttpStatusCode.NotFound)
             return RequestResult<string>.Fail(Error.NotFound);
@@ -64,10 +67,29 @@ public class SecureClient
 
         byte[] fileEncrypted = Convert.FromBase64String(await response.Content.ReadAsStringAsync());
         await System.IO.File.WriteAllBytesAsync(filepath, fileEncrypted);
-        SerpentCipher serpentCipher = new SerpentCipher();
-        serpentCipher.Decrypt(filepath, SessionKey, 32, EncryptionMode.ECB);
 
-        return RequestResult<string>.Success(System.IO.File.ReadAllText(filepath));
+        string result = "";
+        switch (cipherType)
+        {
+            case CipherType.AES:
+                byte[] encryptionKey = new byte[AESCipher.KEY_BYTES];
+                byte[] iv = new byte[AESCipher.BLOCK_BYTES];
+                Array.Copy(SessionKey, encryptionKey, encryptionKey.Length);
+                Array.Copy(SessionKey, AESCipher.KEY_BYTES, iv, 0, iv.Length);
+
+                AESCipher aes = new AESCipher(encryptionKey, iv);
+                var decrypted = aes.Decrypt(fileEncrypted);
+                result = Encoding.UTF8.GetString(decrypted);
+                break;
+            case CipherType.Serpent:
+                SerpentCipher serpentCipher = new SerpentCipher();
+                serpentCipher.Decrypt(filepath, SessionKey, 32, EncryptionMode.CBC);
+                result = System.IO.File.ReadAllText(filepath);
+                break;
+        }
+        
+
+        return RequestResult<string>.Success(result);
     }
 }
 
